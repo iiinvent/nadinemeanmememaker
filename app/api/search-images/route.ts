@@ -2,10 +2,10 @@ import { createApi } from 'unsplash-js';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get('query')?.trim();
+  const query = searchParams.get('query');
   const page = searchParams.get('page') || '1';
 
-  if (!query) {
+  if (!query?.trim()) {
     return new Response('Query parameter is required', { status: 400 });
   }
 
@@ -18,20 +18,37 @@ export async function GET(request: Request) {
       accessKey: process.env.UNSPLASH_ACCESS_KEY,
     });
 
+    // Clean up and process the query
+    const processedQuery = query
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' '); // Replace multiple spaces with single space
+
+    // Add some context words for better image results
+    const enhancedQuery = `${processedQuery} photo clear visible`;
+
     const result = await unsplash.search.getPhotos({
-      query: query.toLowerCase(), // Convert to lowercase for better matches
+      query: enhancedQuery,
       page: parseInt(page),
-      perPage: 30, // Increase results per page for more variety
+      perPage: 20, // Reduced for more focused results
       orientation: 'squarish',
-      orderBy: 'relevant', // Prioritize relevance over recency
+      orderBy: 'relevant',
+      contentFilter: 'high', // Get high-quality images
     });
 
-    if (result.errors) {
-      console.error('Unsplash API error:', result.errors);
-      return new Response('Error fetching images', { status: 500 });
+    if (!result?.response?.results || result.errors) {
+      console.error('Unsplash API error:', result.errors || 'No results');
+      return new Response('No images found', { status: 404 });
     }
 
-    return new Response(JSON.stringify(result.response), {
+    // Filter out any results without regular URLs
+    const filteredResults = result.response.results.filter(photo => photo.urls?.regular);
+
+    if (filteredResults.length === 0) {
+      return new Response('No suitable images found', { status: 404 });
+    }
+
+    return new Response(JSON.stringify({ ...result.response, results: filteredResults }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {

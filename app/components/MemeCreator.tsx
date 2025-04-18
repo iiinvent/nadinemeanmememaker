@@ -137,42 +137,71 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
       // Clean up the query
       const cleanQuery = query.trim();
       
-      // Get a random page number between 1 and 3 (since we increased perPage)
-      const randomPage = Math.floor(Math.random() * 3) + 1;
-      const response = await fetch(`/api/search-images?query=${encodeURIComponent(cleanQuery)}&page=${randomPage}`);
+      // Try up to 3 pages to find a good image
+      let attempts = 0;
+      const maxAttempts = 3;
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch images');
-      }
-
-      const data = await response.json();
-
-      if (data && data.results && data.results.length > 0) {
-        // Get a random image from the results
-        const randomIndex = Math.floor(Math.random() * data.results.length);
-        const photo = data.results[randomIndex];
+      while (attempts < maxAttempts) {
+        attempts++;
+        const response = await fetch(`/api/search-images?query=${encodeURIComponent(cleanQuery)}&page=${attempts}`);
         
-        // Load the image
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = photo.urls.regular;
-        
-        img.onload = () => {
-          setBackgroundImage(img);
-          setIsLoading(false);
-        };
+        if (response.status === 404) {
+          // No images found, try a more generic search
+          if (attempts === maxAttempts) {
+            setError('No images found. Try different keywords!');
+            setIsLoading(false);
+            return;
+          }
+          continue;
+        }
 
-        img.onerror = () => {
-          setError('Failed to load image. Please try again!');
-          setIsLoading(false);
-        };
-      } else {
-        setError('No images found. Try a different search!');
-        setIsLoading(false);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch images: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data?.results?.length > 0) {
+          // Get a random image from the results, preferring the first half of results
+          // as they tend to be more relevant
+          const preferredResults = data.results.slice(0, Math.ceil(data.results.length / 2));
+          const randomIndex = Math.floor(Math.random() * preferredResults.length);
+          const photo = preferredResults[randomIndex];
+          
+          if (!photo?.urls?.regular) {
+            continue; // Try next page if image URL is missing
+          }
+
+          // Load the image
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = photo.urls.regular;
+          
+          try {
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+            });
+            
+            setBackgroundImage(img);
+            setIsLoading(false);
+            return;
+          } catch {
+            if (attempts === maxAttempts) {
+              setError('Failed to load image. Please try again!');
+              setIsLoading(false);
+              return;
+            }
+            continue; // Try next page if image failed to load
+          }
+        }
       }
+      
+      setError('No suitable images found. Try different keywords!');
     } catch (error) {
       console.error('Error searching for images:', error);
       setError('Error searching for images. Please try again!');
+    } finally {
       setIsLoading(false);
     }
   };
