@@ -2,7 +2,7 @@ import { createApi } from 'unsplash-js';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get('query');
+  const query = searchParams.get('query')?.trim();
   const page = searchParams.get('page') || '1';
 
   if (!query) {
@@ -19,10 +19,11 @@ export async function GET(request: Request) {
     });
 
     const result = await unsplash.search.getPhotos({
-      query,
+      query: query.toLowerCase(), // Convert to lowercase for better matches
       page: parseInt(page),
-      perPage: 10,
+      perPage: 30, // Increase results per page for more variety
       orientation: 'squarish',
+      orderBy: 'relevant', // Prioritize relevance over recency
     });
 
     if (result.errors) {

@@ -140,15 +140,18 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
   }, [backgroundImage, topText, bottomText, drawMeme]);
 
   const handleImageSearch = async (query: string) => {
-    if (!query) return;
+    if (!query.trim()) return;
 
     setError('');
     setIsLoading(true);
 
     try {
-      // Get a random page number between 1 and 5
-      const randomPage = Math.floor(Math.random() * 5) + 1;
-      const response = await fetch(`/api/search-images?query=${encodeURIComponent(query)}&page=${randomPage}`);
+      // Clean up the query
+      const cleanQuery = query.trim();
+      
+      // Get a random page number between 1 and 3 (since we increased perPage)
+      const randomPage = Math.floor(Math.random() * 3) + 1;
+      const response = await fetch(`/api/search-images?query=${encodeURIComponent(cleanQuery)}&page=${randomPage}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch images');
