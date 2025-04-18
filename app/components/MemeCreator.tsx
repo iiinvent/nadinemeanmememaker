@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import config from '../config';
 import { generateMemeText } from '../services/groq';
 
 interface MemeCreatorProps {
@@ -196,7 +195,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
       const memeText = await generateMemeText(searchQuery || 'random meme');
       setTopText(memeText.topText);
       setBottomText(memeText.bottomText);
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to generate text. Please try again.');
     } finally {
       setIsLoading(false);
