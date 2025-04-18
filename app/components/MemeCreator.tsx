@@ -115,19 +115,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
         ctx.fillText(line, x, lineY);
       });
 
-      // Add fun decorations
-      const decorations = isTop ? ['🌈', '⭐', '✨'] : ['🎨', '💫', '🌟'];
-      const emojiSize = Math.floor(fontSize / 2);
-      ctx.font = `${emojiSize}px Arial`;
-      
-      // Draw decorations in a fun pattern around the text block
-      decorations.forEach((emoji, i) => {
-        const xPos = x + (i - 1) * (width / 4);
-        const yPos = isTop ? 
-          startY - emojiSize : // Above top text
-          startY + totalHeight + emojiSize; // Below bottom text
-        ctx.fillText(emoji, xPos, yPos);
-      });
+      // No decorations
     };
 
     // Draw the text
@@ -220,9 +208,6 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
   return (
     <div className="flex flex-col items-center gap-6 p-4 min-h-screen bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+CiAgPGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9IiNGRkYiIG9wYWNpdHk9IjAuMiIvPgo8L3N2Zz4=')] bg-gradient-to-b from-pink-200 via-purple-200 to-blue-200">
       <div className="w-full max-w-md space-y-6 relative px-4 sm:px-0">
-        {/* Fun decorative elements */}
-        <div className="absolute -top-4 -left-4 w-20 h-20 bg-yellow-300 rounded-full animate-bounce opacity-20 hidden sm:block"></div>
-        <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-pink-300 rounded-full animate-pulse opacity-20 hidden sm:block"></div>
         
         <div className="relative z-10 space-y-4">
           {/* Search Section */}
@@ -246,8 +231,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
                 </span>
               </button>
             </div>
-            <div className="absolute -right-2 -top-2 w-6 h-6 bg-purple-400 rounded-full animate-pulse hidden sm:block"></div>
-            <div className="absolute -left-2 -bottom-2 w-6 h-6 bg-blue-400 rounded-full animate-bounce hidden sm:block"></div>
+
           </div>
 
           {/* Upload Section */}
@@ -317,7 +301,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
               value={topText}
               onChange={(e) => setTopText(e.target.value)}
             />
-            <div className="absolute -right-2 -top-2 w-4 h-4 bg-pink-400 rounded-full animate-bounce hidden sm:block"></div>
+
           </div>
           
           <div className="relative group">
@@ -328,7 +312,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
               value={bottomText}
               onChange={(e) => setBottomText(e.target.value)}
             />
-            <div className="absolute -left-2 -bottom-2 w-4 h-4 bg-blue-400 rounded-full animate-pulse hidden sm:block"></div>
+
           </div>
         </div>
 
@@ -355,9 +339,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
             <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-green-400 opacity-0 group-hover:opacity-20 transition-opacity"></div>
           </button>
           
-          {/* Fun decorative elements */}
-          <div className="absolute -bottom-2 left-1/4 w-4 h-4 bg-yellow-300 rounded-full animate-bounce delay-100"></div>
-          <div className="absolute -bottom-2 right-1/4 w-4 h-4 bg-pink-300 rounded-full animate-bounce delay-200"></div>
+
         </div>
       </div>
     </div>
