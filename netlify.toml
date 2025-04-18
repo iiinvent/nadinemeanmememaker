@@ -12,3 +12,8 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Note: Set these in Netlify environment settings
+# Required environment variables:
+# - UNSPLASH_ACCESS_KEY
+# - GROQ_API_KEY

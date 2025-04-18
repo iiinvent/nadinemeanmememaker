@@ -22,6 +22,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const drawMeme = () => {
     const canvas = canvasRef.current;
@@ -144,46 +145,48 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
   }, [backgroundImage, topText, bottomText]);
 
   const handleImageSearch = async (query: string) => {
+    if (!query) return;
+
+    setError('');
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
-      setError('');
-      
       // Get a random page number between 1 and 5
       const randomPage = Math.floor(Math.random() * 5) + 1;
+      const response = await fetch(`/api/search-images?query=${encodeURIComponent(query)}&page=${randomPage}`);
       
-      const result = await unsplash.search.getPhotos({
-        query,
-        page: randomPage,
-        perPage: 30,  // Get more photos per page
-        orientation: 'squarish',
-      });
-
-      if (result.errors) {
-        throw new Error(result.errors[0]);
+      if (!response.ok) {
+        throw new Error('Failed to fetch images');
       }
 
-      const photos = result.response?.results;
-      if (photos && photos.length > 0) {
-        // Get 3 random photos and pick one randomly for more variety
-        const randomIndices: number[] = [];
-        while (randomIndices.length < 3 && randomIndices.length < photos.length) {
-          const index = Math.floor(Math.random() * photos.length);
-          if (!randomIndices.includes(index)) {
-            randomIndices.push(index);
-          }
-        }
+      const data = await response.json();
+
+      if (data && data.results && data.results.length > 0) {
+        // Get a random image from the results
+        const randomIndex = Math.floor(Math.random() * data.results.length);
+        const photo = data.results[randomIndex];
         
-        const randomPhoto = photos[randomIndices[Math.floor(Math.random() * randomIndices.length)]];
+        // Load the image
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.src = randomPhoto.urls.regular;
+        img.src = photo.urls.regular;
+        
         img.onload = () => {
           setBackgroundImage(img);
           setIsLoading(false);
         };
+
+        img.onerror = () => {
+          setError('Failed to load image. Please try again!');
+          setIsLoading(false);
+        };
+      } else {
+        setError('No images found. Try a different search!');
+        setIsLoading(false);
       }
-    } catch (err) {
-      setError('Failed to load image. Please try again.');
+    } catch (error) {
+      console.error('Error searching for images:', error);
+      setError('Error searching for images. Please try again!');
       setIsLoading(false);
     }
   };
@@ -217,35 +220,69 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
 
   return (
     <div className="flex flex-col items-center gap-6 p-4 min-h-screen bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+CiAgPGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9IiNGRkYiIG9wYWNpdHk9IjAuMiIvPgo8L3N2Zz4=')] bg-gradient-to-b from-pink-200 via-purple-200 to-blue-200">
-      <div className="w-full max-w-md space-y-6 relative">
+      <div className="w-full max-w-md space-y-6 relative px-4 sm:px-0">
         {/* Fun decorative elements */}
-        <div className="absolute -top-4 -left-4 w-20 h-20 bg-yellow-300 rounded-full animate-bounce opacity-20"></div>
-        <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-pink-300 rounded-full animate-pulse opacity-20"></div>
+        <div className="absolute -top-4 -left-4 w-20 h-20 bg-yellow-300 rounded-full animate-bounce opacity-20 hidden sm:block"></div>
+        <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-pink-300 rounded-full animate-pulse opacity-20 hidden sm:block"></div>
         
-        <div className="relative z-10">
+        <div className="relative z-10 space-y-4">
+          {/* Search Section */}
+          <div className="relative group">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="🔍 What kind of picture do you want?"
+                className="w-full p-4 sm:p-6 text-lg sm:text-xl border-4 border-dashed border-purple-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-300 transform transition-all hover:scale-102 placeholder-purple-400"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleImageSearch(searchQuery)}
+              />
+              <button
+                onClick={() => handleImageSearch(searchQuery)}
+                className="w-full sm:w-auto px-6 py-4 sm:py-6 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-3xl font-comic text-lg sm:text-xl shadow-xl hover:shadow-2xl hover:from-blue-500 hover:to-blue-600 transform hover:scale-105 transition-all disabled:opacity-50 disabled:transform-none relative overflow-hidden group whitespace-nowrap"
+                disabled={isLoading || !searchQuery}
+              >
+                <span className="relative z-10">
+                  {isLoading ? '🔄' : '🔍 Search!'}
+                </span>
+              </button>
+            </div>
+            <div className="absolute -right-2 -top-2 w-6 h-6 bg-purple-400 rounded-full animate-pulse hidden sm:block"></div>
+            <div className="absolute -left-2 -bottom-2 w-6 h-6 bg-blue-400 rounded-full animate-bounce hidden sm:block"></div>
+          </div>
+
+          {/* Upload Section */}
           <div className="relative group">
             <input
-              type="text"
-              placeholder="🔍 What kind of picture do you want?"
-              className="w-full p-6 text-xl border-4 border-dashed border-purple-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-300 transform transition-all hover:scale-102 placeholder-purple-400"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleImageSearch(searchQuery)}
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                      setBackgroundImage(img);
+                      setError('');
+                    };
+                    img.onerror = () => setError('Failed to load image');
+                    img.src = event.target?.result as string;
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
             />
-            <div className="absolute -right-2 -top-2 w-6 h-6 bg-purple-400 rounded-full animate-pulse"></div>
-            <div className="absolute -left-2 -bottom-2 w-6 h-6 bg-blue-400 rounded-full animate-bounce"></div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full p-4 sm:p-6 bg-gradient-to-r from-green-400 to-teal-500 text-white rounded-3xl font-comic text-lg sm:text-xl shadow-xl hover:shadow-2xl hover:from-green-500 hover:to-teal-600 transform hover:scale-105 transition-all relative overflow-hidden group"
+            >
+              <span className="relative z-10">📸 Upload Your Own Picture!</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-green-400 opacity-0 group-hover:opacity-20 transition-opacity"></div>
+            </button>
           </div>
-          
-          <button
-            onClick={() => handleImageSearch(searchQuery)}
-            className="mt-4 w-full p-6 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-3xl font-comic text-xl shadow-xl hover:shadow-2xl hover:from-blue-500 hover:to-blue-600 transform hover:scale-105 transition-all disabled:opacity-50 disabled:transform-none relative overflow-hidden group"
-            disabled={isLoading || !searchQuery}
-          >
-            <span className="relative z-10">
-              {isLoading ? '🔄 Finding Pictures...' : '✨ Find Fun Pictures! 🎨'}
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity"></div>
-          </button>
         </div>
 
         {error && (
@@ -273,26 +310,26 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
         </div>
 
         <div className="space-y-4 w-full">
-          <div className="relative group">
+          <div className="relative">
             <input
               type="text"
               placeholder="🌈 Type your TOP text here..."
-              className="w-full p-6 text-xl border-4 border-dashed border-pink-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-300 transform transition-all hover:scale-102"
+              className="w-full p-4 sm:p-6 text-lg sm:text-xl border-4 border-dashed border-pink-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-300 transform transition-all hover:scale-102"
               value={topText}
               onChange={(e) => setTopText(e.target.value)}
             />
-            <div className="absolute -right-2 -top-2 w-4 h-4 bg-pink-400 rounded-full animate-bounce"></div>
+            <div className="absolute -right-2 -top-2 w-4 h-4 bg-pink-400 rounded-full animate-bounce hidden sm:block"></div>
           </div>
           
           <div className="relative group">
             <input
               type="text"
               placeholder="🌟 Type your BOTTOM text here..."
-              className="w-full p-6 text-xl border-4 border-dashed border-blue-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-300 transform transition-all hover:scale-102"
+              className="w-full p-4 sm:p-6 text-lg sm:text-xl border-4 border-dashed border-blue-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-300 transform transition-all hover:scale-102"
               value={bottomText}
               onChange={(e) => setBottomText(e.target.value)}
             />
-            <div className="absolute -left-2 -bottom-2 w-4 h-4 bg-blue-400 rounded-full animate-pulse"></div>
+            <div className="absolute -left-2 -bottom-2 w-4 h-4 bg-blue-400 rounded-full animate-pulse hidden sm:block"></div>
           </div>
         </div>
 
