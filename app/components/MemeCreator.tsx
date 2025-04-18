@@ -1,0 +1,329 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { createApi } from 'unsplash-js';
+import config from '../config';
+import { generateMemeText } from '../services/groq';
+
+interface MemeCreatorProps {
+  width: number;
+  height: number;
+}
+
+const unsplash = createApi({
+  accessKey: config.unsplashAccessKey,
+});
+
+export default function MemeCreator({ width, height }: MemeCreatorProps) {
+  const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null);
+  const [topText, setTopText] = useState('');
+  const [bottomText, setBottomText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const drawMeme = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw background image if available
+    if (backgroundImage) {
+      ctx.drawImage(backgroundImage, 0, 0, width, height);
+    } else {
+      // Draw placeholder background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    // Function to wrap text
+    const wrapText = (text: string, maxWidth: number): string[] => {
+      const words = text.split(' ');
+      const lines: string[] = [];
+      let currentLine = words[0];
+
+      for (let i = 1; i < words.length; i++) {
+        const word = words[i];
+        const width = ctx.measureText(currentLine + ' ' + word).width;
+        if (width < maxWidth) {
+          currentLine += ' ' + word;
+        } else {
+          lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      lines.push(currentLine);
+      return lines;
+    };
+
+    // Function to draw text with fun shadow effect
+    const drawFunText = (text: string, x: number, y: number, isTop: boolean) => {
+      if (!text) return;
+
+      // Start with a large font size and decrease until it fits
+      let fontSize = Math.min(64, Math.floor(width / 8));
+      ctx.textAlign = 'center';
+      
+      // Keep adjusting font size until text fits
+      let lines: string[] = [];
+      do {
+        ctx.font = `bold ${fontSize}px "Comic Sans MS"`;
+        lines = wrapText(text, width * 0.9);
+        fontSize -= 2;
+      } while ((lines.length * fontSize * 1.2) > height * 0.25 && fontSize > 20);
+
+      // Calculate total height of text block
+      const lineHeight = fontSize * 1.2;
+      const totalHeight = lines.length * lineHeight;
+      
+      // Calculate starting Y position
+      let startY = isTop ? y : y - totalHeight;
+      if (!isTop) {
+        ctx.textBaseline = 'top';
+      }
+
+      // Rainbow colors for outline
+      const rainbow = [
+        '#FF0000', // Red
+        '#FF7F00', // Orange
+        '#FFFF00', // Yellow
+        '#00FF00', // Green
+        '#0000FF', // Blue
+        '#4B0082', // Indigo
+        '#8B00FF'  // Violet
+      ];
+
+      // Draw each line
+      lines.forEach((line, index) => {
+        const lineY = startY + (index * lineHeight);
+
+        // Draw rainbow outline
+        rainbow.forEach((color, i) => {
+          const offset = i * 2;
+          ctx.lineWidth = Math.floor(fontSize / 6);
+          ctx.strokeStyle = color;
+          ctx.strokeText(line, x + offset - 6, lineY);
+        });
+
+        // Draw white fill with black outline
+        ctx.lineWidth = Math.floor(fontSize / 4);
+        ctx.strokeStyle = 'black';
+        ctx.strokeText(line, x, lineY);
+        ctx.fillStyle = 'white';
+        ctx.fillText(line, x, lineY);
+      });
+
+      // Add fun decorations
+      const decorations = isTop ? ['🌈', '⭐', '✨'] : ['🎨', '💫', '🌟'];
+      const emojiSize = Math.floor(fontSize / 2);
+      ctx.font = `${emojiSize}px Arial`;
+      
+      // Draw decorations in a fun pattern around the text block
+      decorations.forEach((emoji, i) => {
+        const xPos = x + (i - 1) * (width / 4);
+        const yPos = isTop ? 
+          startY - emojiSize : // Above top text
+          startY + totalHeight + emojiSize; // Below bottom text
+        ctx.fillText(emoji, xPos, yPos);
+      });
+    };
+
+    // Draw the text
+    drawFunText(topText, width / 2, 40, true);
+    drawFunText(bottomText, width / 2, height - 40, false);
+  };
+
+  useEffect(() => {
+    drawMeme();
+  }, [backgroundImage, topText, bottomText]);
+
+  const handleImageSearch = async (query: string) => {
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      // Get a random page number between 1 and 5
+      const randomPage = Math.floor(Math.random() * 5) + 1;
+      
+      const result = await unsplash.search.getPhotos({
+        query,
+        page: randomPage,
+        perPage: 30,  // Get more photos per page
+        orientation: 'squarish',
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0]);
+      }
+
+      const photos = result.response?.results;
+      if (photos && photos.length > 0) {
+        // Get 3 random photos and pick one randomly for more variety
+        const randomIndices: number[] = [];
+        while (randomIndices.length < 3 && randomIndices.length < photos.length) {
+          const index = Math.floor(Math.random() * photos.length);
+          if (!randomIndices.includes(index)) {
+            randomIndices.push(index);
+          }
+        }
+        
+        const randomPhoto = photos[randomIndices[Math.floor(Math.random() * randomIndices.length)]];
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = randomPhoto.urls.regular;
+        img.onload = () => {
+          setBackgroundImage(img);
+          setIsLoading(false);
+        };
+      }
+    } catch (err) {
+      setError('Failed to load image. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleAIGenerate = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      const memeText = await generateMemeText(searchQuery || 'random meme');
+      setTopText(memeText.topText);
+      setBottomText(memeText.bottomText);
+    } catch (err) {
+      setError('Failed to generate text. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const link = document.createElement('a');
+    link.download = `meme-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-6 p-4 min-h-screen bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+CiAgPGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9IiNGRkYiIG9wYWNpdHk9IjAuMiIvPgo8L3N2Zz4=')] bg-gradient-to-b from-pink-200 via-purple-200 to-blue-200">
+      <div className="w-full max-w-md space-y-6 relative">
+        {/* Fun decorative elements */}
+        <div className="absolute -top-4 -left-4 w-20 h-20 bg-yellow-300 rounded-full animate-bounce opacity-20"></div>
+        <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-pink-300 rounded-full animate-pulse opacity-20"></div>
+        
+        <div className="relative z-10">
+          <div className="relative group">
+            <input
+              type="text"
+              placeholder="🔍 What kind of picture do you want?"
+              className="w-full p-6 text-xl border-4 border-dashed border-purple-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-300 transform transition-all hover:scale-102 placeholder-purple-400"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleImageSearch(searchQuery)}
+            />
+            <div className="absolute -right-2 -top-2 w-6 h-6 bg-purple-400 rounded-full animate-pulse"></div>
+            <div className="absolute -left-2 -bottom-2 w-6 h-6 bg-blue-400 rounded-full animate-bounce"></div>
+          </div>
+          
+          <button
+            onClick={() => handleImageSearch(searchQuery)}
+            className="mt-4 w-full p-6 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-3xl font-comic text-xl shadow-xl hover:shadow-2xl hover:from-blue-500 hover:to-blue-600 transform hover:scale-105 transition-all disabled:opacity-50 disabled:transform-none relative overflow-hidden group"
+            disabled={isLoading || !searchQuery}
+          >
+            <span className="relative z-10">
+              {isLoading ? '🔄 Finding Pictures...' : '✨ Find Fun Pictures! 🎨'}
+            </span>
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity"></div>
+          </button>
+        </div>
+
+        {error && (
+          <div className="p-6 bg-red-100 border-4 border-red-300 rounded-3xl font-comic text-red-600 text-center text-lg animate-bounce">
+            <span className="mr-2">⚠️</span>
+            {error}
+          </div>
+        )}
+
+        <div className="relative group transform transition-all hover:scale-102">
+          <div className="absolute -inset-3 bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 rounded-3xl blur opacity-30 group-hover:opacity-40 transition-all"></div>
+          <div className="relative border-4 border-dashed border-purple-400 rounded-3xl p-3 bg-white shadow-xl">
+            <canvas
+              ref={canvasRef}
+              width={width}
+              height={height}
+              className="w-full rounded-2xl"
+            />
+            {!backgroundImage && (
+              <div className="absolute inset-0 flex items-center justify-center text-purple-400 font-comic text-xl text-center p-6 animate-pulse">
+                🎨 Let's create something AWESOME! ✨
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4 w-full">
+          <div className="relative group">
+            <input
+              type="text"
+              placeholder="🌈 Type your TOP text here..."
+              className="w-full p-6 text-xl border-4 border-dashed border-pink-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-300 transform transition-all hover:scale-102"
+              value={topText}
+              onChange={(e) => setTopText(e.target.value)}
+            />
+            <div className="absolute -right-2 -top-2 w-4 h-4 bg-pink-400 rounded-full animate-bounce"></div>
+          </div>
+          
+          <div className="relative group">
+            <input
+              type="text"
+              placeholder="🌟 Type your BOTTOM text here..."
+              className="w-full p-6 text-xl border-4 border-dashed border-blue-400 rounded-3xl font-comic bg-white shadow-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-300 transform transition-all hover:scale-102"
+              value={bottomText}
+              onChange={(e) => setBottomText(e.target.value)}
+            />
+            <div className="absolute -left-2 -bottom-2 w-4 h-4 bg-blue-400 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+
+        <div className="space-y-4 relative">
+          <button
+            onClick={handleAIGenerate}
+            className="w-full p-6 bg-gradient-to-r from-purple-400 to-pink-500 text-white rounded-3xl font-comic text-xl shadow-xl hover:shadow-2xl hover:from-purple-500 hover:to-pink-600 transform hover:scale-105 transition-all disabled:opacity-50 disabled:transform-none relative overflow-hidden group"
+            disabled={isLoading}
+          >
+            <span className="relative z-10">
+              {isLoading ? '🤖 Making it Super Funny...' : '🎨 Make it MEGA Funny! ✨'}
+            </span>
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity"></div>
+          </button>
+          
+          <button
+            onClick={handleExport}
+            className="w-full p-6 bg-gradient-to-r from-green-400 to-teal-500 text-white rounded-3xl font-comic text-xl shadow-xl hover:shadow-2xl hover:from-green-500 hover:to-teal-600 transform hover:scale-105 transition-all disabled:opacity-50 disabled:transform-none relative overflow-hidden group"
+            disabled={!backgroundImage}
+          >
+            <span className="relative z-10">
+              📸 Save Your Amazing Meme! 🎉
+            </span>
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-green-400 opacity-0 group-hover:opacity-20 transition-opacity"></div>
+          </button>
+          
+          {/* Fun decorative elements */}
+          <div className="absolute -bottom-2 left-1/4 w-4 h-4 bg-yellow-300 rounded-full animate-bounce delay-100"></div>
+          <div className="absolute -bottom-2 right-1/4 w-4 h-4 bg-pink-300 rounded-full animate-bounce delay-200"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
