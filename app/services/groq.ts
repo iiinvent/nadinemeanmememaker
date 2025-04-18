@@ -11,11 +11,24 @@ export async function generateMemeText(theme: string): Promise<{ topText: string
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
+          role: 'system',
+          content: 'You are a witty meme creator that specializes in creating viral, relatable, and clever memes. You understand internet culture, current trends, and how to make people laugh. Your memes should be punchy, memorable, and follow classic meme formats.'
+        },
+        {
           role: 'user',
-          content: `Create a funny meme about: ${theme}. Generate two short lines, each under 50 characters. First line will be at the top of the meme, second line at the bottom. Make it humorous and relevant to the theme.`
+          content: `Create a hilarious meme about: ${theme}
+
+Rules:
+1. First line: Setup/Context (max 40 chars)
+2. Second line: Punchline/Twist (max 40 chars)
+3. Use classic meme formats (e.g., "When you...", "Nobody:", "Me:")
+4. Make it relatable and funny
+5. Keep it clean and appropriate
+
+Respond with ONLY the two lines, one per line.`
         }
       ],
-      temperature: 0.7,
+      temperature: 0.9,
       max_tokens: 100,
     };
 
