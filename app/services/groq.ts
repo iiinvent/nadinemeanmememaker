@@ -1,6 +1,6 @@
 import config from '../config';
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
 
 export async function generateMemeText(theme: string): Promise<{ topText: string; bottomText: string }> {
   try {

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { createApi } from 'unsplash-js';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import config from '../config';
 import { generateMemeText } from '../services/groq';
 
@@ -9,10 +9,6 @@ interface MemeCreatorProps {
   width: number;
   height: number;
 }
-
-const unsplash = createApi({
-  accessKey: config.unsplashAccessKey,
-});
 
 export default function MemeCreator({ width, height }: MemeCreatorProps) {
   const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null);
@@ -24,7 +20,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const drawMeme = () => {
+  const drawMeme = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -84,7 +80,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
       const totalHeight = lines.length * lineHeight;
       
       // Calculate starting Y position
-      let startY = isTop ? y : y - totalHeight;
+      const startY = isTop ? y : y - totalHeight;
       if (!isTop) {
         ctx.textBaseline = 'top';
       }
@@ -138,11 +134,11 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
     // Draw the text
     drawFunText(topText, width / 2, 40, true);
     drawFunText(bottomText, width / 2, height - 40, false);
-  };
+  }, [backgroundImage, topText, bottomText, width, height]);
 
   useEffect(() => {
     drawMeme();
-  }, [backgroundImage, topText, bottomText]);
+  }, [backgroundImage, topText, bottomText, drawMeme]);
 
   const handleImageSearch = async (query: string) => {
     if (!query) return;
@@ -191,6 +187,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
     }
   };
 
+
   const handleAIGenerate = async () => {
     try {
       setIsLoading(true);
@@ -199,7 +196,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
       const memeText = await generateMemeText(searchQuery || 'random meme');
       setTopText(memeText.topText);
       setBottomText(memeText.bottomText);
-    } catch (err) {
+    } catch (error) {
       setError('Failed to generate text. Please try again.');
     } finally {
       setIsLoading(false);
@@ -303,7 +300,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
             />
             {!backgroundImage && (
               <div className="absolute inset-0 flex items-center justify-center text-purple-400 font-comic text-xl text-center p-6 animate-pulse">
-                🎨 Let's create something AWESOME! ✨
+                🎨 Let&apos;s create something AWESOME! ✨
               </div>
             )}
           </div>
@@ -364,3 +361,4 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
     </div>
   );
 }
+
