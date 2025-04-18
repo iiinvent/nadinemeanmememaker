@@ -162,17 +162,9 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
         const data = await response.json();
 
         if (data?.results?.length > 0) {
-          // Sort results by relevance score if available
-          const sortedResults = [...data.results].sort((a, b) => {
-            const scoreA = a.relevance || 0;
-            const scoreB = b.relevance || 0;
-            return scoreB - scoreA;
-          });
-
-          // Take the top 5 most relevant results
-          const topResults = sortedResults.slice(0, 5);
-          const randomIndex = Math.floor(Math.random() * topResults.length);
-          const photo = topResults[randomIndex];
+          // Get a random image from the results
+          const randomIndex = Math.floor(Math.random() * data.results.length);
+          const photo = data.results[randomIndex];
           
           if (!photo?.urls?.regular) {
             continue; // Try next page if image URL is missing

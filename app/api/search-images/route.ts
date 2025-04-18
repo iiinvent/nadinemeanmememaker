@@ -22,19 +22,15 @@ export async function GET(request: Request) {
     const processedQuery = query
       .trim()
       .toLowerCase()
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-      .split(' ')
-      .filter(Boolean) // Remove empty strings
-      .join(' AND '); // Force Unsplash to include all words
+      .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+      .replace(/\s+/g, ' '); // Replace multiple spaces with single space
 
     const result = await unsplash.search.getPhotos({
       query: processedQuery,
       page: parseInt(page),
-      perPage: 15, // Reduced for more focused results
+      perPage: 30, // Increased for better chances of finding matches
       orientation: 'squarish',
       orderBy: 'relevant',
-      contentFilter: 'high', // Get high-quality images
-      color: 'white', // Prefer images with white backgrounds for better text visibility
     });
 
     if (!result?.response?.results || result.errors) {
