@@ -195,7 +195,7 @@ export default function MemeCreator({ width, height }: MemeCreatorProps) {
       const memeText = await generateMemeText(searchQuery || 'random meme');
       setTopText(memeText.topText);
       setBottomText(memeText.bottomText);
-    } catch (_error) {
+    } catch {
       setError('Failed to generate text. Please try again.');
     } finally {
       setIsLoading(false);
